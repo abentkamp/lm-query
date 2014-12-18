@@ -7,40 +7,50 @@ import re
 def main():
 
     args = parseArguments()
-    print args.arpa_file.encoding
 
     arpaParse = parseArpa(args.arpa_file)
-    print arpaParse['ngramLogProbs']
 
     # TODO: support UTF8 encoding
     totalLogProb = 0
+    totalLogProbExclOov = 0
     wordCount = 0
+    oovCount = 0
     for sentence in args.test_data:
         sentence = sentence.strip()
         history = ['<s>']
         wordList = sentence.split(' ');
         wordList.append('</s>')
         sentenceTotalLogProb = 0
+        sentenceOovCount = 0
         for word in wordList:
             history.append(word)
             if len(history) not in arpaParse['ngramLogProbs']:
                 history.pop(0)
 
-            wordLogProb = calculateProp(history, arpaParse)
+            wordId, length, wordLogProb = calculateProp(history, arpaParse)
+
             sentenceTotalLogProb += wordLogProb
+            totalLogProb += wordLogProb
             wordCount += 1
 
-            print word
-            print wordLogProb
+            if wordId == 0: # unknown word
+                oovCount += 1
+                sentenceOovCount += 1
+            else:
+                totalLogProbExclOov += wordLogProb
 
-        totalLogProb += sentenceTotalLogProb
+            print '{}={} {} {}'.format(word, wordId, length, wordLogProb)
 
-        print 'Sentence Total:'
-        print sentenceTotalLogProb
+        
+        print 'Total: {} OOV: {}'.format(sentenceTotalLogProb, sentenceOovCount)
 
     perplexity = math.pow(10, -totalLogProb/wordCount)
-    print 'PP'
-    print perplexity
+    perplexityExclOov = math.pow(10, -totalLogProbExclOov/(wordCount-oovCount))
+
+    print >> sys.stderr, 'Perplexity including OOVs: {}'.format(perplexity)
+    print >> sys.stderr, 'Perplexity excluding OOVs: {}'.format(perplexityExclOov)
+    print >> sys.stderr, 'OOVs: {}'.format(oovCount)
+    print >> sys.stderr, 'Tokens: {}'.format(wordCount)
 
 def parseArguments():
     # TODO: add help texts
@@ -106,16 +116,28 @@ def parseArpa(arpaFile):
     # TODO: Other validation?
     return {'ngramCounts': ngramCounts, 'ngramBackoffs': ngramBackoffs, 'ngramLogProbs': ngramLogProbs}
 
+# This function returns three values:
+# - A fake word id, which is 0 if the word is unknown or 1 if the word is known from training
+# - The length of the ngram used to determine the probability
+# - The log probability of the word
 def calculateProp(ngram, arpaParse):
+    # The ngramString is the words seperated by spaces
     ngramString = ' '.join(ngram)
+
+    # if the ngram is in the training data, return the probability.
     if ngramString in arpaParse['ngramLogProbs'][len(ngram)]:
-        return arpaParse['ngramLogProbs'][len(ngram)][ngramString]
+        return 1, len(ngram), arpaParse['ngramLogProbs'][len(ngram)][ngramString]
+
+    # if the ngram is a unknown unigram, return the <unk> probability.
     elif len(ngram) == 1:
-        return arpaParse['ngramLogProbs'][1]['<unk>']
+        return 0, 1, arpaParse['ngramLogProbs'][1]['<unk>']
+
+    # if the ngram is unknown and not a unigram, shorten the history.
     else:
         historyString = ' '.join(ngram[:-1])
         if historyString in arpaParse['ngramBackoffs'][len(ngram)-1]:
-            return arpaParse['ngramBackoffs'][len(ngram)-1][historyString] + calculateProp(ngram[1:], arpaParse)
+            id, length, prob = calculateProp(ngram[1:], arpaParse)
+            return id, length, arpaParse['ngramBackoffs'][len(ngram)-1][historyString] + prob
         else:
             return calculateProp(ngram[1:], arpaParse)
 

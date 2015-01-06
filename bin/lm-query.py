@@ -81,34 +81,50 @@ def parseArpa(arpaFile):
     for line in arpaFile:
         lineNumber += 1
 
-        if beforeData: 
+        if beforeData:
+            # Only start parsing when the '\data\' keyword occurs
             if line.strip() == '\\data\\':
                 beforeData = False
         else:
             ngramCountRegex = re.match('^ngram (\d+)=(\d+)$',line)
             listKeywordRegex = re.match('^\\\\(\d+)-grams:$',line)
-            if ngramOrder != None:
-                listItemRegex = re.match('^(-?\d+(\.\d+)?)\s+' + '(\S+' + (' \S+' * (ngramOrder-1)) + ')' + '\s+(-?\d+(\.\d+)?)?$',line)
+
+            # A line like 'ngram 2=27866'
             if ngramCountRegex != None:
                 ngramOrder = int(ngramCountRegex.group(1))
                 ngramCount = int(ngramCountRegex.group(2))
                 ngramCounts[ngramOrder] = ngramCount
+
+            # A line like '\2-grams:'
             elif listKeywordRegex != None:
                 ngramOrder = int(listKeywordRegex.group(1))
                 ngramLogProbs[ngramOrder] = {}
                 ngramBackoffs[ngramOrder] = {}
-            elif ngramOrder != None and listItemRegex != None:
-                ngramLogProb = float(listItemRegex.group(1))
-                words = listItemRegex.group(3).strip()
-                ngramBackoff = float(listItemRegex.group(4) ) if listItemRegex.group(4) != None else None
 
-                # TODO: check number of words
-                ngramLogProbs[ngramOrder][words] = ngramLogProb
-                ngramBackoffs[ngramOrder][words] = ngramBackoff
+            # An empty line
             elif line.strip() == '':
                 continue
+
+            # A line like '\end\'
             elif line.strip() == '\\end\\':
                 break
+
+            # A line like '-1.9320396   the universe works  -0.031235874'      
+            elif ngramOrder != None:
+                # seperate the line with white space as delimter
+                splitLine = line.split()      
+
+                # the second to the n+1 th parts are the words of the ngram
+                words = ' '.join(splitLine[1:1+ngramOrder]) 
+
+                # The first part is the log prbability of the ngram
+                ngramLogProbs[ngramOrder][words] = float(splitLine[0])
+
+                # if there is one more part, it's the backoff
+                if(len(splitLine) > ngramOrder + 1):
+                    ngramBackoffs[ngramOrder][words] = float(splitLine[-1])
+
+            # Anything else
             else:
                 raise Exception('Parsing Error at line {}: {}'.format(lineNumber, line))
 

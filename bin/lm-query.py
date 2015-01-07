@@ -3,13 +3,21 @@ import argparse
 import sys
 import math
 import re
+import time
 
 def main():
 
-    args = parseArguments()
+    startTime = time.clock()
 
-    arpaParse = parseArpa(args.arpa_file)
+    arpaFile = parseArguments()
 
+    arpaParse = parseArpa(arpaFile)
+
+    queryLanguageModel(arpaParse, sys.stdin, sys.stdout, sys.stderr)
+
+    print('Total execution time: {} seconds'.format(time.clock() - startTime), file=sys.stderr)
+
+def queryLanguageModel(arpaParse, testData, probabilityOutput, perplexityOutput):
     # log probability for the whole test set
     totalLogProb = 0
 
@@ -23,7 +31,7 @@ def main():
     oovCount = 0
 
     # iterate over the sentences in the test data
-    for sentence in args.test_data:
+    for sentence in testData:
         sentence = sentence.strip()
 
         # list of previous words in the sentence
@@ -59,29 +67,40 @@ def main():
             else:
                 totalLogProbExclOov += wordLogProb
 
-            print ('{}={} {} {}'.format(word, wordId, length, wordLogProb))
+            print ('{}={} {} {}'.format(word, wordId, length, wordLogProb), file=probabilityOutput)
 
         
-        print ('Total: {} OOV: {}'.format(sentenceTotalLogProb, sentenceOovCount))
+        print ('Total: {} OOV: {}'.format(sentenceTotalLogProb, sentenceOovCount), file=probabilityOutput)
 
     perplexity = math.pow(10, -totalLogProb/wordCount)
     perplexityExclOov = math.pow(10, -totalLogProbExclOov/(wordCount-oovCount))
     
-    print ('Perplexity including OOVs: {}'.format(perplexity), file=sys.stderr)
-    print ('Perplexity excluding OOVs: {}'.format(perplexityExclOov), file=sys.stderr)
-    print ('OOVs: {}'.format(oovCount), file=sys.stderr)
-    print ('Tokens: {}'.format(wordCount), file=sys.stderr)
+    print ('Perplexity including OOVs: {}'.format(perplexity), file=perplexityOutput)
+    print ('Perplexity excluding OOVs: {}'.format(perplexityExclOov), file=perplexityOutput)
+    print ('OOVs: {}'.format(oovCount), file=perplexityOutput)
+    print ('Tokens: {}'.format(wordCount), file=perplexityOutput)
 
 def parseArguments():
     # TODO: add help texts
-    parser = argparse.ArgumentParser(description='Process some integers.', usage ='%(prog)s arpa_file < test_data > probabilities 2> perplexity')
-    parser.add_argument('arpa_file', metavar='arpa_file', type=argparse.FileType('r'), help='bla')
+    parser = argparse.ArgumentParser(
+        description=
+        '''
+        The language model specified in the ARPA file is queried.
 
-    parser.add_argument('test_data', nargs='?', type=argparse.FileType('r'), default=sys.stdin)
-    parser.add_argument('probabilities', nargs='?', type=argparse.FileType('w'), default=sys.stdout)
-    parser.add_argument('perplexity', nargs='?', type=argparse.FileType('w'), default=sys.stderr)
+        The test data are expected in stdin. Words must be seperated by spaces and sentences are seperated by newline.
 
-    return parser.parse_args()
+        The log probabilities for each word are printed to stdout. They are given in the format [word]=[known word?] [n-gram length] [log prob]. 
+        
+        The perplexity is printed to stderr, including and excluding OOVs.
+        '''
+        , 
+        usage ='%(prog)s arpa_file < test_data > probabilities 2> perplexity'
+    )
+
+    parser.add_argument('arpa_file', metavar='arpa_file', type=argparse.FileType('r'), help='ARPA file specifying the language model')
+
+    parser.add_argument('--version', action='version', version='%(prog)s 1.0')
+    return parser.parse_args().arpa_file
 
 def parseArpa(arpaFile):
     # These variables will be returned in the end:

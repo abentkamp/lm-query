@@ -1,6 +1,8 @@
 lm-query
 ========
 
+**lm-query** queries a language model specified in an [ARPA file](http://www.speech.sri.com/projects/srilm/manpages/ngram-format.5.html). 
+
 Requirements
 ------------
 Python 3.x

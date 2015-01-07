@@ -10,23 +10,43 @@ def main():
 
     arpaParse = parseArpa(args.arpa_file)
 
-    # TODO: support UTF8 encoding
+    # log probability for the whole test set
     totalLogProb = 0
+
+    # log prob of the whole test set, ignoring the oovs
     totalLogProbExclOov = 0
+
+    # Total number of words in the test set
     wordCount = 0
+
+    # counts the unknown words
     oovCount = 0
+
+    # iterate over the sentences in the test data
     for sentence in args.test_data:
         sentence = sentence.strip()
+
+        # list of previous words in the sentence
         history = ['<s>']
+
+        # list of all the words in the sentence
         wordList = sentence.split(' ');
         wordList.append('</s>')
+
+        # log prob of the whole sentence
         sentenceTotalLogProb = 0
+
+        # number of oovs in the sentence
         sentenceOovCount = 0
+
+        # iterate over the words in the sentence
         for word in wordList:
             history.append(word)
+            # remove words in the history that are too long ago
             if len(history) not in arpaParse['ngramLogProbs']:
                 history.pop(0)
 
+            # Calculate proabability for the word given the history
             wordId, length, wordLogProb = calculateProp(history, arpaParse)
 
             sentenceTotalLogProb += wordLogProb
@@ -39,18 +59,18 @@ def main():
             else:
                 totalLogProbExclOov += wordLogProb
 
-            print '{}={} {} {}'.format(word, wordId, length, wordLogProb)
+            print ('{}={} {} {}'.format(word, wordId, length, wordLogProb))
 
         
-        print 'Total: {} OOV: {}'.format(sentenceTotalLogProb, sentenceOovCount)
+        print ('Total: {} OOV: {}'.format(sentenceTotalLogProb, sentenceOovCount))
 
     perplexity = math.pow(10, -totalLogProb/wordCount)
     perplexityExclOov = math.pow(10, -totalLogProbExclOov/(wordCount-oovCount))
-
-    print >> sys.stderr, 'Perplexity including OOVs: {}'.format(perplexity)
-    print >> sys.stderr, 'Perplexity excluding OOVs: {}'.format(perplexityExclOov)
-    print >> sys.stderr, 'OOVs: {}'.format(oovCount)
-    print >> sys.stderr, 'Tokens: {}'.format(wordCount)
+    
+    print ('Perplexity including OOVs: {}'.format(perplexity), file=sys.stderr)
+    print ('Perplexity excluding OOVs: {}'.format(perplexityExclOov), file=sys.stderr)
+    print ('OOVs: {}'.format(oovCount), file=sys.stderr)
+    print ('Tokens: {}'.format(wordCount), file=sys.stderr)
 
 def parseArguments():
     # TODO: add help texts

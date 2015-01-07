@@ -13,10 +13,15 @@ For Linux: in the terminal type `git clone https://github.com/benti/lm-query.git
 
 How to use it
 -------------
-For Windows: open the command prompt, go to lm-query folder, 
-run `python bin\lm-query.py [arpa file] < [test set file] > [probability output file] 2> [perplexity output file]`
+*For Windows*: open the command prompt, go to lm-query folder, 
+run 
 
-For Linux: open the terminal, type `lm-query/bin/lm-query.py [arpa file] < [test set file] > [probability output file] 2> [perplexity output file]`
+`python bin\lm-query.py [arpa file] < [test set file] > [probability output file] 2> [perplexity output file]`
+
+
+*For Linux*: open the terminal, type 
+
+`lm-query/bin/lm-query.py [arpa file] < [test set file] > [probability output file] 2> [perplexity output file]`
 
 
 Licence
